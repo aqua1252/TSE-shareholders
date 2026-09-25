@@ -1,0 +1,46 @@
+name: Update shareholder data
+
+on:
+  schedule:
+    # هر روز ساعت ۰۵:۳۰ UTC (حدود ۹:۰۰ صبح به وقت تهران).
+    # زمان دلخواه خودت را با کرون‌تب تنظیم کن: https://crontab.guru
+    - cron: "30 5 * * *"
+  workflow_dispatch: {}   # اجازه‌ی اجرای دستی از تب Actions
+
+permissions:
+  contents: write   # برای commit/push نتایج به همین ریپو لازم است
+
+concurrency:
+  group: update-shareholder-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run collector
+        run: python collector.py
+
+      - name: Commit and push updated data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/shareholders data/watched_holders.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No data changes today."
+          else
+            git commit -m "Automated shareholder data update ($(date -u +'%Y-%m-%d'))"
+            git push
+          fi
